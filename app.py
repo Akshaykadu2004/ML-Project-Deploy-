@@ -1,70 +1,65 @@
 import streamlit as st
 import pickle
+import pandas as pd
 import numpy as np
 
-# Load the trained model
+# Load the model
 def load_model():
     with open('model.pkl', 'rb') as file:
-        data = pickle.load(file)
-    return data
+        model = pickle.load(file)
+    return model
 
 model = load_model()
 
-# Set page to wide mode to help with centering
-st.set_page_config(page_title="Diabetes Prediction", layout="wide")
-
-# Centering CSS
-st.markdown("""
-    <style>
-    .main {
-        display: flex;
-        justify-content: center;
-    }
-    .block-container {
-        max-width: 800px;
-        padding-top: 2rem;
-    }
-    h1, h3, p {
-        text-align: center;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
+# App Title
 st.title("Diabetes Prediction App")
-st.write("Enter the patient details below to determine the likelihood of diabetes.")
+st.write("Enter the following details to predict if a patient is likely to have diabetes.")
 
-# Create three columns; we will put the input fields in the middle one to "center" it
-left_co, cent_co, last_co = st.columns([1, 2, 1])
+# Input fields based on the feature names in your model
+st.sidebar.header("Patient Data")
 
-with cent_co:
-    st.subheader("Patient Clinical Data")
+def user_input_features():
+    # These match the feature_names_in_ found in your .pkl file
+    pregnancies = st.sidebar.number_input("Pregnancies", min_value=0, max_value=20, value=0)
+    glucose = st.sidebar.number_input("Glucose", min_value=0, max_value=300, value=100)
+    blood_pressure = st.sidebar.number_input("Blood Pressure", min_value=0, max_value=200, value=70)
+    skin_thickness = st.sidebar.number_input("Skin Thickness", min_value=0, max_value=100, value=20)
+    insulin = st.sidebar.number_input("Insulin", min_value=0, max_value=900, value=80)
+    bmi = st.sidebar.number_input("BMI", min_value=0.0, max_value=70.0, value=25.0)
+    dpf = st.sidebar.number_input("Diabetes Pedigree Function", min_value=0.0, max_value=3.0, value=0.5)
+    age = st.sidebar.number_input("Age", min_value=0, max_value=120, value=30)
     
-    # Numerical Inputs
-    pregnancies = st.number_input("Number of Pregnancies", min_value=0, step=1, value=1)
-    glucose = st.number_input("Glucose Level (mg/dL)", min_value=0, value=100)
-    blood_pressure = st.number_input("Blood Pressure (mm Hg)", min_value=0, value=70)
-    skin_thickness = st.number_input("Skin Thickness (mm)", min_value=0, value=20)
-    insulin = st.number_input("Insulin Level (mu U/ml)", min_value=0, value=80)
-    bmi = st.number_input("BMI (Body Mass Index)", min_value=0.0, format="%.1f", value=25.0)
-    dpf = st.number_input("Diabetes Pedigree Function", min_value=0.0, format="%.3f", value=0.5)
-    age = st.number_input("Age (Years)", min_value=1, step=1, value=30)
+    data = {
+        'Pregnancies': pregnancies,
+        'Glucose': glucose,
+        'BloodPressure': blood_pressure,
+        'SkinThickness': skin_thickness,
+        'Insulin': insulin,
+        'BMI': bmi,
+        'DiabetesPedigreeFunction': dpf,
+        'Age': age
+    }
+    features = pd.DataFrame(data, index=[0])
+    return features
 
-    # Centered Predict Button
-    if st.button("Run Prediction Analysis", use_container_width=True):
-        # Prepare the features for the model[cite: 1]
-        features = np.array([[pregnancies, glucose, blood_pressure, skin_thickness, 
-                              insulin, bmi, dpf, age]])
-        
-        prediction = model.predict(features)
-        prediction_proba = model.predict_proba(features)
+input_df = user_input_features()
 
-        st.markdown("---")
-        
-        # Displaying Categorical Result instead of 0 or 1[cite: 1]
-        if prediction[0] == 1:
-            st.error("### Result: Diabetes Positive")
-        else:
-            st.success("### Result: Diabetes Negative")
+# Display user input
+st.subheader("Input Parameters")
+st.write(input_df)
 
-        # Probability Visualization
+# Prediction
+if st.button("Predict"):
+    prediction = model.predict(input_df)
+    prediction_proba = model.predict_proba(input_df)
+
+    st.subheader("Result")
+    if prediction[0] == 1:
+        st.error("The model predicts the patient is likely to have Diabetes.")
+    else:
+        st.success("The model predicts the patient is unlikely to have Diabetes.")
+
+    st.subheader("Prediction Probability")
+    st.write(f"Probability of Diabetes: {prediction_proba[0][1]:.2%}")
+    st.write(f"Probability of No Diabetes: {prediction_proba[0][0]:.2%}")
         st.write(f"**Confidence Level:** {np.max(prediction_proba[0]):.2%}")
