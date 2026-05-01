@@ -3,62 +3,83 @@ import pickle
 import pandas as pd
 import numpy as np
 
-# Load the model
+# Page configuration for a professional look
+st.set_page_config(page_title="Diabetes Health Predictor", layout="wide")
+
+# Load the model [source: 1]
+@st.cache_resource
 def load_model():
     with open('model.pkl', 'rb') as file:
-        model = pickle.load(file)
-    return model
+        return pickle.load(file)
 
 model = load_model()
 
-# App Title
-st.title("Diabetes Prediction App")
-st.write("Enter the following details to predict if a patient is likely to have diabetes.")
-
-# Input fields based on the feature names in your model
-st.sidebar.header("Patient Data")
-
-def user_input_features():
-    # These match the feature_names_in_ found in your .pkl file
-    pregnancies = st.sidebar.number_input("Pregnancies", min_value=0, max_value=20, value=0)
-    glucose = st.sidebar.number_input("Glucose", min_value=0, max_value=300, value=100)
-    blood_pressure = st.sidebar.number_input("Blood Pressure", min_value=0, max_value=200, value=70)
-    skin_thickness = st.sidebar.number_input("Skin Thickness", min_value=0, max_value=100, value=20)
-    insulin = st.sidebar.number_input("Insulin", min_value=0, max_value=900, value=80)
-    bmi = st.sidebar.number_input("BMI", min_value=0.0, max_value=70.0, value=25.0)
-    dpf = st.sidebar.number_input("Diabetes Pedigree Function", min_value=0.0, max_value=3.0, value=0.5)
-    age = st.sidebar.number_input("Age", min_value=0, max_value=120, value=30)
-    
-    data = {
-        'Pregnancies': pregnancies,
-        'Glucose': glucose,
-        'BloodPressure': blood_pressure,
-        'SkinThickness': skin_thickness,
-        'Insulin': insulin,
-        'BMI': bmi,
-        'DiabetesPedigreeFunction': dpf,
-        'Age': age
+# Custom CSS to improve aesthetics
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f5f7f9;
     }
-    features = pd.DataFrame(data, index=[0])
-    return features
+    .stButton>button {
+        width: 100%;
+        border-radius: 5px;
+        height: 3em;
+        background-color: #007bff;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_value=True)
 
-input_df = user_input_features()
+# Centering content using columns
+col_left, col_mid, col_right = st.columns([1, 2, 1])
 
-# Display user input
-st.subheader("Input Parameters")
-st.write(input_df)
+with col_mid:
+    st.title("🩺 Diabetes Health Predictor")
+    st.markdown("---")
+    st.write("Please adjust the sliders below to match the patient's clinical data.")
 
-# Prediction
-if st.button("Predict"):
-    prediction = model.predict(input_df)
-    prediction_proba = model.predict_proba(input_df)
+    # Input Section
+    with st.container():
+        pregnancies = st.slider("Number of Pregnancies", 0, 17, 3)
+        glucose = st.slider("Glucose Level (mg/dL)", 0, 200, 110)
+        blood_pressure = st.slider("Blood Pressure (mm Hg)", 0, 122, 70)
+        skin_thickness = st.slider("Skin Thickness (mm)", 0, 99, 20)
+        insulin = st.slider("Insulin Level (mu U/ml)", 0, 846, 80)
+        bmi = st.slider("BMI (Body Mass Index)", 0.0, 67.1, 26.0)
+        dpf = st.slider("Diabetes Pedigree Function", 0.0, 2.5, 0.5)
+        age = st.slider("Age (Years)", 21, 100, 33)
 
-    st.subheader("Result")
-    if prediction[0] == 1:
-        st.error("The model predicts the patient is likely to have Diabetes.")
-    else:
-        st.success("The model predicts the patient is unlikely to have Diabetes.")
+    # Creating the feature dataframe [source: 1]
+    input_data = pd.DataFrame([[
+        pregnancies, glucose, blood_pressure, skin_thickness, 
+        insulin, bmi, dpf, age
+    ]], columns=[
+        'Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 
+        'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age'
+    ])
 
-    st.subheader("Prediction Probability")
-    st.write(f"Probability of Diabetes: {prediction_proba[0][1]:.2%}")
-    st.write(f"Probability of No Diabetes: {prediction_proba[0][0]:.2%}")
+    st.markdown("---")
+    
+    if st.button("Analyze Health Data"):
+        # Model Inference
+        prediction = model.predict(input_data)
+        prediction_proba = model.predict_proba(input_data)
+        confidence = np.max(prediction_proba[0])
+
+        # Categorical Mapping: Converting 0/1 to Text
+        result_text = "Positive" if prediction[0] == 1 else "Negative"
+        
+        # Display Result
+        st.subheader("Prediction Result")
+        
+        if result_text == "Positive":
+            st.error(f"**Status:** {result_text}")
+            st.warning(f"Confidence Level: {confidence:.2%}")
+            st.info("Recommendation: Consult with a healthcare professional for further diagnostic testing.")
+        else:
+            st.success(f"**Status:** {result_text}")
+            st.write(f"Confidence Level: {confidence:.2%}")
+            st.balloons()
+
+    st.markdown("---")
+    st.caption("Note: This tool is for educational purposes and uses a K-Nearest Neighbors model for estimations.")
