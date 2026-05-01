@@ -3,10 +3,14 @@ import pickle
 import pandas as pd
 import numpy as np
 
-# Page configuration
-st.set_page_config(page_title="Health Insights Dashboard", layout="wide")
+# 1. Page Configuration with an attractive title
+st.set_page_config(
+    page_title="AuraHealth | Diabetes Risk Intelligence", 
+    page_icon="✨", 
+    layout="wide"
+)
 
-# Load the model
+# 2. Load the model
 @st.cache_resource
 def load_model():
     with open('model.pkl', 'rb') as file:
@@ -14,78 +18,86 @@ def load_model():
 
 model = load_model()
 
-# Custom Styling for a modern "Card" look
+# 3. Enhanced Custom Styling
 st.markdown("""
     <style>
-    .main {
-        background-color: #f8f9fa;
+    /* Main background */
+    .stApp {
+        background: linear-gradient(to bottom, #ffffff, #f0f4f8);
     }
-    div.stButton > button:first-child {
-        background-color: #00b4d8;
+    
+    /* Centered card-like container */
+    [data-testid="stVerticalBlock"] > div:has(div.stButton) {
+        background: white;
+        padding: 30px;
+        border-radius: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(45deg, #007cf0, #00dfd8);
         color: white;
-        border-radius: 10px;
         border: none;
-        height: 3em;
-        width: 100%;
-        font-size: 1.2em;
-        font-weight: bold;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 18px;
+        font-weight: 600;
+        transition: 0.3s;
     }
-    div.stButton > button:hover {
-        background-color: #0077b6;
-        color: white;
-    }
-    .result-box {
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        margin-top: 20px;
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,124,240,0.3);
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Centering the entire interface
+# 4. Centered Layout Construction
 _, center_col, _ = st.columns([1, 2, 1])
 
 with center_col:
-    st.title("🩺 Patient Health Predictor")
-    st.write("Complete the clinical profile below to evaluate diabetes risk.")
+    st.header("✨ AuraHealth Intelligence")
+    st.write("Complete the patient profile to generate a predictive risk report.")
     st.markdown("---")
 
-    # --- CATEGORICAL INPUTS ---
-    # Pregnancies converted to categorical ranges
-    preg_options = {
-        "0 (None)": 0,
-        "1-2 (Low)": 1,
-        "3-5 (Moderate)": 4,
-        "6+ (High)": 8
+    # --- CATEGORICAL INPUTS (1st and 2nd Position) ---
+    # 1st: Pregnancy History (Categorical)
+    preg_map = {
+        "None (0)": 0,
+        "Low (1-2)": 1,
+        "Moderate (3-5)": 4,
+        "High (6+)": 8
     }
-    selected_preg = st.selectbox("Pregnancy History", options=list(preg_options.keys()))
-    pregnancies = preg_options[selected_preg]
+    selected_preg = st.selectbox("1. Pregnancy History", options=list(preg_map.keys()))
+    pregnancies = preg_map[selected_preg]
 
-    # Glucose converted to categorical health status
-    glucose_options = {
-        "Normal (Less than 100 mg/dL)": 90,
-        "Prediabetic (100-125 mg/dL)": 115,
-        "High (126+ mg/dL)": 150
+    # 2nd: Glucose Status (Categorical)
+    glucose_map = {
+        "Normal (< 100 mg/dL)": 95,
+        "Prediabetic (100-125 mg/dL)": 110,
+        "Diabetic Level (126+ mg/dL)": 160
     }
-    selected_glucose = st.selectbox("Glucose Level Status", options=list(glucose_options.keys()))
-    glucose = glucose_options[selected_glucose]
+    selected_glucose = st.selectbox("2. Glucose Status", options=list(glucose_map.keys()))
+    glucose = glucose_map[selected_glucose]
 
-    # --- REMAINING INPUTS (Attractive Sliders) ---
-    blood_pressure = st.slider("Blood Pressure (mm Hg)", 40, 130, 72)
+    # --- REMAINING CLINICAL INPUTS ---
+    st.write("#### Clinical Measurements")
     
-    col_left, col_right = st.columns(2)
-    with col_left:
+    # Using columns for a compact, attractive look
+    c1, c2 = st.columns(2)
+    with c1:
+        age = st.number_input("Age", 21, 100, 30)
+        bmi = st.number_input("BMI Index", 10.0, 70.0, 28.5)
+        blood_pressure = st.number_input("Blood Pressure", 40, 140, 70)
+        
+    with c2:
         skin_thickness = st.number_input("Skin Thickness (mm)", 0, 99, 20)
-        bmi = st.number_input("BMI", 10.0, 70.0, 31.0)
-    with col_right:
-        insulin = st.number_input("Insulin (mu U/ml)", 0, 850, 80)
-        age = st.number_input("Age (Years)", 21, 100, 30)
+        insulin = st.number_input("Insulin Level", 0, 850, 80)
+        dpf = st.number_input("Diabetes Pedigree Function", 0.0, 2.5, 0.5)
 
-    dpf = st.slider("Diabetes Pedigree Function", 0.0, 2.5, 0.5)
-
-    # Prepare Data
-    input_df = pd.DataFrame([[
+    # 5. Data Processing
+    input_features = pd.DataFrame([[
         pregnancies, glucose, blood_pressure, skin_thickness, 
         insulin, bmi, dpf, age
     ]], columns=[
@@ -95,21 +107,22 @@ with center_col:
 
     st.markdown("---")
 
-    if st.button("Generate Health Report"):
-        prediction = model.predict(input_df)
-        prediction_proba = model.predict_proba(input_df)
+    # 6. Result Generation
+    if st.button("Generate Predictive Report"):
+        prediction = model.predict(input_features)
+        prediction_proba = model.predict_proba(input_features)
         
-        # Categorical Result Mapping
-        result = "Positive" if prediction[0] == 1 else "Negative"
+        # Categorical Result Mapping[cite: 1]
+        status = "Tested Positive" if prediction[0] == 1 else "Tested Negative"
         confidence = np.max(prediction_proba[0])
 
-        if result == "Positive":
-            st.error(f"### Result: {result}")
-            st.write(f"The analysis indicates a **{confidence:.2%}** probability of diabetic indicators.")
+        if prediction[0] == 1:
+            st.error(f"### Assessment: {status}")
+            st.write(f"The analysis indicates a **{confidence:.2%}** probability of diabetic health indicators.")
         else:
-            st.success(f"### Result: {result}")
-            st.write(f"The analysis indicates a **{confidence:.2%}** probability of a healthy profile.")
+            st.success(f"### Assessment: {status}")
+            st.write(f"The analysis indicates a **{confidence:.2%}** probability of a healthy clinical profile.")
             st.balloons()
 
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.caption("Educational Tool: Based on a KNeighborsClassifier trained on the Pima Indians dataset[cite: 1].")
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.caption("Powered by Scikit-Learn KNeighborsClassifier | Data: Pima Indians[cite: 1]")
